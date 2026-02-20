@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta content='img.jpg' property='og:image'/>
+  <title>Neon Slim Player</title>
+  <style>
+    :root {
+      --neon-blue: #00d2ff;
+      --deep-blue: #4a7cff;
+      --glass-bg: rgba(255, 255, 255, 0.1);
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Pretendard', sans-serif;
+      background: linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.8)), 
+                  url('https://images.unsplash.com/photo-1472289065668-ce6a9a442c23?q=80&w=2071&auto=format&fit=crop');
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* 네비게이션 최상단 고정 */
+    .nav {
+      display: flex;
+      gap: 5px;
+      margin: 10px 0;
+      width: 92%;
+      max-width: 400px;
+      background: var(--glass-bg);
+      backdrop-filter: blur(15px);
+      padding: 4px;
+      border-radius: 50px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .nav a {
+      flex: 1;
+      text-decoration: none;
+      color: rgba(255, 255, 255, 0.5);
+      padding: 6px 0;
+      text-align: center;
+      border-radius: 25px;
+      font-size: 11px;
+      font-weight: bold;
+      transition: 0.3s;
+    }
+
+    .nav a.active {
+      background: var(--deep-blue);
+      color: #fff;
+      box-shadow: 0 0 10px var(--deep-blue);
+    }
+
+    /* [디자인 요청 반영] 이미지 099.jpg 스타일의 네온 플레이어 */
+    .player-card {
+      width: 92%;
+      max-width: 400px;
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(20px);
+      border-radius: 20px;
+      padding: 12px 15px;
+      text-align: center;
+      border: 1px solid rgba(0, 210, 255, 0.3);
+      box-shadow: 0 0 20px rgba(0, 210, 255, 0.15);
+      margin-bottom: 10px;
+    }
+
+    /* 슬림한 곡 정보 영역 */
+    .song-info { margin-bottom: 8px; }
+    .song-info .category { font-size: 9px; color: var(--neon-blue); letter-spacing: 2px; text-transform: uppercase; }
+    .song-info .title { font-size: 14px; font-weight: bold; margin-top: 2px; color: #fff; text-shadow: 0 0 5px rgba(255,255,255,0.3); }
+
+    /* 비주얼라이저 느낌의 진행 바 구역 */
+    .visualizer-area {
+      position: relative;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 5px 0;
+    }
+
+    /* 가짜 비주얼라이저 애니메이션 */
+    .bar-container { display: flex; gap: 2px; align-items: flex-end; height: 15px; opacity: 0.5; }
+    .bar { width: 3px; background: var(--neon-blue); border-radius: 1px; animation: bounce 1s ease-in-out infinite alternate; animation-play-state: paused; }
+    .bar.playing { animation-play-state: running; }
+    @keyframes bounce { from { height: 3px; } to { height: 15px; } }
+
+    /* 실제 진행 바 */
+    .progress-container { width: 100%; cursor: pointer; padding: 5px 0; }
+    .progress-bg { height: 3px; background: rgba(255, 255, 255, 0.1); border-radius: 10px; overflow: hidden; }
+    .progress-fill { width: 0%; height: 100%; background: linear-gradient(90deg, var(--deep-blue), var(--neon-blue)); box-shadow: 0 0 8px var(--neon-blue); }
+
+    /* 컨트롤 버튼 그룹 */
+    .controls { display: flex; justify-content: center; align-items: center; gap: 25px; margin-top: 5px; }
+    .btn { background: none; border: none; color: #fff; font-size: 20px; cursor: pointer; opacity: 0.7; transition: 0.2s; }
+    .btn:hover { opacity: 1; transform: scale(1.1); }
+    .btn-play { 
+      font-size: 32px; 
+      color: var(--neon-blue); 
+      opacity: 1; 
+      filter: drop-shadow(0 0 5px var(--neon-blue));
+    }
+
+    /* 리스트 영역 (10곡 최적화) */
+    .playlist-wrapper {
+      width: 92%;
+      max-width: 400px;
+      flex: 1;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 15px 15px 0 0;
+      overflow-y: auto;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .playlist-table { width: 100%; border-collapse: collapse; }
+    .playlist-table td { 
+      padding: 10px 20px; /* 10곡 노출을 위한 간격 */
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03); 
+      cursor: pointer; 
+      font-size: 13px; 
+      color: rgba(255, 255, 255, 0.7);
+    }
+    .playlist-table tr.active td { 
+      color: var(--neon-blue); 
+      background: rgba(0, 210, 255, 0.08); 
+      font-weight: bold; 
+      border-left: 3px solid var(--neon-blue);
+    }
+  </style>
+</head>
+<body>
+
+<div class="nav">
+  <a href="?cat=old" id="nav-old">OLD</a>
+  <a href="?cat=enka" id="nav-enka">ENKA</a>
+  <a href="?cat=jazz" id="nav-jazz">JAZZ</a>
+</div>
+
+<div class="player-card">
+  <div class="song-info">
+    <div class="category" id="labelCat">CATEGORY</div>
+    <div class="title" id="labelTitle">곡을 선택해 주세요</div>
+  </div>
+
+  <div class="visualizer-area">
+    <div class="bar-container" id="visualizer">
+      <div class="bar" style="animation-delay: 0.1s"></div>
+      <div class="bar" style="animation-delay: 0.3s"></div>
+      <div class="bar" style="animation-delay: 0.2s"></div>
+      <div class="bar" style="animation-delay: 0.4s"></div>
+      <div class="bar" style="animation-delay: 0.1s"></div>
+    </div>
+  </div>
+
+  <div class="progress-container" id="progArea">
+    <div class="progress-bg"><div class="progress-fill" id="progFill"></div></div>
+  </div>
+
+  <div class="controls">
+    <button class="btn" id="btnPrev">⏮</button>
+    <button class="btn btn-play" id="btnPlay">▶</button>
+    <button class="btn" id="btnNext">⏭</button>
+  </div>
+</div>
+
+<div class="playlist-wrapper">
+  <table class="playlist-table" id="listTable"></table>
+</div>
+
+<script>
+const playlists = {
+    "enka": [
+        {
+            "title": "이성애 - 단장의미아리고개",
+            "url": "music/enka/이성애 - 단장의미아리고개.mp3"
+        },
+        {
+            "title": "이성애 - 돌아와요부산항에",
+            "url": "music/enka/이성애 - 돌아와요부산항에.mp3"
+        },
+        {
+            "title": "이성애 - 물방아도는내력",
+            "url": "music/enka/이성애 - 물방아도는내력.mp3"
+        },
+        {
+            "title": "주현미 - 스물살때 어느밤",
+            "url": "music/enka/주현미 - 스물살때 어느밤.mp3"
+        },
+        {
+            "title": "주현미 - 정말 좋았네",
+            "url": "music/enka/주현미 - 정말 좋았네.mp3"
+        },
+        {
+            "title": "주현미 - 정주지않으리",
+            "url": "music/enka/주현미 - 정주지않으리.mp3"
+        }
+    ],
+    "jazz": [
+        {
+            "title": "금잔디 - 고장난벽시계",
+            "url": "music/jazz/금잔디 - 고장난벽시계.mp3"
+        },
+        {
+            "title": "금잔디 - 남자라는이유로",
+            "url": "music/jazz/금잔디 - 남자라는이유로.mp3"
+        },
+        {
+            "title": "금잔디 - 네박자",
+            "url": "music/jazz/금잔디 - 네박자.mp3"
+        },
+        {
+            "title": "금잔디 - 안동역에서",
+            "url": "music/jazz/금잔디 - 안동역에서.mp3"
+        },
+        {
+            "title": "금잔디 - 일편단심",
+            "url": "music/jazz/금잔디 - 일편단심.mp3"
+        }
+    ],
+    "old": [
+        {
+            "title": "Beyonce - TEXAS HOLD EM",
+            "url": "music/old/Beyonce - TEXAS HOLD EM.mp3"
+        },
+        {
+            "title": "Daniel - Blackboard of My Heart",
+            "url": "music/old/Daniel - Blackboard of My Heart.mp3"
+        },
+        {
+            "title": "Daniel - Pretty Little Girl From Omagh",
+            "url": "music/old/Daniel - Pretty Little Girl From Omagh.mp3"
+        },
+        {
+            "title": "Isla Grant - Every Moment Of Every Hour",
+            "url": "music/old/Isla Grant - Every Moment Of Every Hour.mp3"
+        },
+        {
+            "title": "Isla Grant - Only Yesterday",
+            "url": "music/old/Isla Grant - Only Yesterday.mp3"
+        },
+        {
+            "title": "Mary Duff-Just Lovin' You",
+            "url": "music/old/Mary Duff-Just Lovin' You.mp3"
+        },
+        {
+            "title": "Mary Duff-Power Of Love",
+            "url": "music/old/Mary Duff-Power Of Love.mp3"
+        }
+    ]
+};
+const params = new URLSearchParams(window.location.search);
+const curCat = params.get("cat") || "old";
+const curList = playlists[curCat] || playlists["old"];
+
+document.getElementById("nav-" + curCat).classList.add("active");
+document.getElementById("labelCat").textContent = curCat.toUpperCase();
+
+const audio = new Audio();
+let curIdx = 0;
+
+const listTable = document.getElementById("listTable");
+curList.forEach((song, i) => {
+  const tr = document.createElement("tr");
+  tr.innerHTML = `<td>${song.title}</td>`;
+  tr.onclick = () => playSong(i);
+  listTable.appendChild(tr);
+});
+
+function playSong(i) {
+  curIdx = i;
+  audio.src = curList[i].url;
+  audio.play().catch(e => console.log("Play blocked"));
+  document.getElementById("labelTitle").textContent = curList[i].title;
+  updateUI();
+}
+
+function togglePlay() {
+  if (!audio.src) { playSong(0); return; }
+  audio.paused ? audio.play() : audio.pause();
+}
+
+function updateUI() {
+  const rows = document.querySelectorAll("#listTable tr");
+  rows.forEach((row, k) => row.classList.toggle("active", k === curIdx));
+  rows[curIdx]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+audio.onplay = () => {
+  document.getElementById("btnPlay").textContent = "⏸";
+  document.querySelectorAll(".bar").forEach(b => b.classList.add("playing"));
+};
+audio.onpause = () => {
+  document.getElementById("btnPlay").textContent = "▶";
+  document.querySelectorAll(".bar").forEach(b => b.classList.remove("playing"));
+};
+audio.onended = () => document.getElementById("btnNext").click();
+audio.ontimeupdate = () => {
+  if (audio.duration) {
+    const per = (audio.currentTime / audio.duration) * 100;
+    document.getElementById("progFill").style.width = per + "%";
+  }
+};
+
+document.getElementById("btnPlay").onclick = togglePlay;
+document.getElementById("btnNext").onclick = () => playSong((curIdx + 1) % curList.length);
+document.getElementById("btnPrev").onclick = () => playSong((curIdx - 1 + curList.length) % curList.length);
+document.getElementById("progArea").onclick = (e) => {
+  const w = document.getElementById("progArea").clientWidth;
+  audio.currentTime = (e.offsetX / w) * audio.duration;
+};
+</script>
+</body>
+</html>
